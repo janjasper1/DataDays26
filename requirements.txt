@@ -1,0 +1,6 @@
+numpy
+scipy
+tensorflow
+huggingface_hub
+pandas
+matplotlib
