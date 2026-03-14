@@ -50,7 +50,7 @@ y_model = pd.to_numeric(y, errors='coerce').fillna(0.0)
 
 # Starte das Training mit der Pipeline
 print("Starte Training...")
-result = run_training_pipeline(clean_df, steps=1200, lr=0.002, visualize=True, hour=8.0)
+result = run_training_pipeline(clean_df, steps=1200, lr=0.002, visualize=False, hour=8.0)
 print(f"Training abgeschlossen! Finaler Loss: {result['losses'][-1]:.2f}")
 
 # Optional: Speichere das Modell
