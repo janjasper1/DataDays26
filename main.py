@@ -1,10 +1,15 @@
 from datasets import load_dataset
 
-def get_data():
-    # This pulls the data from HF servers to your local machine
-    dataset = load_dataset("org_name/dataset_name")
-    return dataset
+# 1. Download/Load the dataset
+print("Fetching Amaan/DataDays...")
+dataset = load_dataset("Amaan/DataDays")
 
-if __name__ == "__main__":
-    data = get_data()
-    print("Dataset loaded successfully!")
+# 2. Look at what's inside
+print("\n--- Dataset Info ---")
+print(dataset)
+
+# 3. Access a specific row (e.g., first row of the 'train' split)
+# Note: Check the output of step 2 to see if your data uses 'train'
+if 'train' in dataset:
+    print("\n--- First Entry Sample ---")
+    print(dataset['train'][0])
