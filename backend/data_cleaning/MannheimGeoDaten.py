@@ -2,6 +2,7 @@ import pandas as pd
 import geopandas as gpd
 from shapely.wkt import loads
 
+
 # 1. Lade dein Datenset (z.B. von Hugging Face oder lokal)
 # Falls die Daten noch als CSV vorliegen:
 df = pd.read_csv("deine_datendatei.csv") 
