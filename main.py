@@ -1,4 +1,7 @@
 from datasets import load_dataset
+from huggingface_hub import login
+
+login(token="hf_YourTokenHere")  # Replace with your actual Hugging Face token
 
 # 1. Download/Load the dataset
 print("Fetching Amaan/DataDays...")
@@ -13,3 +16,4 @@ print(dataset)
 if 'train' in dataset:
     print("\n--- First Entry Sample ---")
     print(dataset['train'][0])
+
