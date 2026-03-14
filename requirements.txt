@@ -1,0 +1,9 @@
+numpy
+scipy
+tensorflow
+huggingface_hub
+pandas
+matplotlib
+datasets
+scikit-learn
+python-dotenv
