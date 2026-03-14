@@ -7,3 +7,6 @@ matplotlib
 datasets
 scikit-learn
 python-dotenv
+torch
+pyro-ppl
+contextily

@@ -61,17 +61,36 @@ def prepare_training_data(raw_df: pd.DataFrame) -> Dict[str, Any]:
     df = extract_spatial_coordinates(df)
     target_key = identify_target_key(df)
 
-    df['delta_Y'] = df.groupby(['lon', 'lat'])[target_key].shift(1) - df[target_key]
+    # Sort strictly by space and time to guarantee valid differential operations
+    df = df.sort_values(['lat', 'lon', 'timestamp']).reset_index(drop=True)
+
+    df['delta_Y'] = df.groupby(['lat', 'lon'])[target_key].shift(1) - df[target_key]
     df['delta_Y'] = df['delta_Y'].clip(lower=0).fillna(0)
 
-    df['hour_sin'] = np.sin(2 * np.pi * df['timestamp'].dt.hour / 24)
-    df['hour_cos'] = np.cos(2 * np.pi * df['timestamp'].dt.hour / 24)
-    df = df.dropna(subset=['lon', 'lat']).copy()
+    # Project discrete temporal coordinates onto the continuous S1 quotient space (tau = 168)
+    df['Stunde'] = df['timestamp'].dt.hour
+    df['Wochentag'] = df['timestamp'].dt.dayofweek
+    hours_into_week = df['Wochentag'] * 24 + df['Stunde']
+    df['h_sin'] = np.sin(2 * np.pi * hours_into_week / 168)
+    df['h_cos'] = np.cos(2 * np.pi * hours_into_week / 168)
 
-    if len(df) == 0:
-        raise ValueError("Data manifold collapsed. Verify temporal/spatial columns.")
+    # Boolean mapping injection
+    mapping = {'True': 1, 'False': 0, 'true': 1, 'false': 0, 'T': 1, 'F': 0, 't': 1, 'f': 0, '1': 1, '0': 0, True: 1, False: 0, 1: 1, 0: 0}
+    if 'is_virtual_station' in df.columns:
+        df['is_virtual_station'] = df['is_virtual_station'].map(mapping).astype(float).fillna(0)
+    else:
+        df['is_virtual_station'] = 0.0
+    if 'realtime_data_outdated' in df.columns:
+        df['realtime_data_outdated'] = df['realtime_data_outdated'].map(mapping).astype(float).fillna(0)
+    else:
+        df['realtime_data_outdated'] = 0.0
 
-    x_unscaled = df[['hour_sin', 'hour_cos', 'lon', 'lat']].values
+    # Construct the design matrix X and response vector Y
+    features = ['h_sin', 'h_cos', 'lat', 'lon', 'capacity', 'is_virtual_station', 'realtime_data_outdated']
+    # Drop NaN values created by the shift operator and clean continuous time
+    df = df.dropna(subset=['delta_Y'] + features)
+
+    x_unscaled = df[features].values.astype(float)
     scaler = StandardScaler()
     x_tensor = torch.tensor(scaler.fit_transform(x_unscaled), dtype=torch.float)
     y_tensor = torch.tensor(df['delta_Y'].values, dtype=torch.float)
@@ -104,19 +123,18 @@ class DeepNBGLM(PyroModule):
         self.relu = nn.ReLU()
 
     def forward(self, x, y=None):
-        x = self.relu(self.fc1(x))
-        x = self.relu(self.fc2(x))
-        f_psi = torch.clamp(self.fc3(x).squeeze(), max=20.0)
-
+        h = self.relu(self.fc1(x))
+        h = self.relu(self.fc2(h))
+        # Exponential link function, clamped to enforce bounded intensity gradients
+        mu = torch.exp(torch.clamp(self.fc3(h).squeeze(), max=20.0))
         r = pyro.sample("r", dist.HalfNormal(10.0))
-        mu = torch.exp(f_psi)
 
         with pyro.plate("data", x.shape[0]):
             pyro.sample("obs", dist.NegativeBinomial(total_count=r, probs=r / (r + mu)), obs=y)
 
 
-def train_model(x: torch.Tensor, y: torch.Tensor, steps: int = 1000, lr: float = 0.005,
-                log_every: int = 250) -> Dict[str, Any]:
+def train_model(x: torch.Tensor, y: torch.Tensor, steps: int = 1200, lr: float = 0.002,
+                log_every: int = 200) -> Dict[str, Any]:
     pyro.clear_param_store()
     model = DeepNBGLM(x.shape[1])
     guide = AutoNormal(model)
@@ -175,7 +193,7 @@ def visualize_results(df: pd.DataFrame, scaler: StandardScaler, hour: float = 8.
     plt.show()
 
 
-def run_training_pipeline(raw_df: pd.DataFrame, steps: int = 1000, lr: float = 0.005,
+def run_training_pipeline(raw_df: pd.DataFrame, steps: int = 1200, lr: float = 0.002,
                           visualize: bool = False, hour: float = 8.0) -> Dict[str, Any]:
     data = prepare_training_data(raw_df)
     trained = train_model(data['X'], data['Y'], steps=steps, lr=lr)

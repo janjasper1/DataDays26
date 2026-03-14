@@ -7,7 +7,7 @@ import torch
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
 from backend.data_cleaning.cleaning_data_skript import clean_data
-from backend.train.train_model import train_model
+from backend.train.train_model import run_training_pipeline
 
 load_dotenv()
 
@@ -47,6 +47,16 @@ X = clean_df.drop(columns=['num_bicycles_available', 'station_id', 'name'])
 ### model training
 X_model = X.apply(pd.to_numeric, errors='coerce').fillna(0.0)
 y_model = pd.to_numeric(y, errors='coerce').fillna(0.0)
+
+# Starte das Training mit der Pipeline
+print("Starte Training...")
+result = run_training_pipeline(clean_df, steps=1200, lr=0.002, visualize=True, hour=8.0)
+print(f"Training abgeschlossen! Finaler Loss: {result['losses'][-1]:.2f}")
+
+# Optional: Speichere das Modell
+import torch
+torch.save(result['model'].state_dict(), 'trained_model.pth')
+print("Modell gespeichert als 'trained_model.pth'")
 
 
 scaler = StandardScaler()
