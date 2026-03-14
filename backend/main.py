@@ -3,7 +3,11 @@ from huggingface_hub import login
 from dotenv import load_dotenv
 import os
 from pathlib import Path
+import torch
+import pandas as pd
+from sklearn.preprocessing import StandardScaler
 from backend.data_cleaning.cleaning_data_skript import clean_data
+from backend.train.train_model import train_model
 
 main_dir = Path(__file__).resolve().parent
 env_candidates = [main_dir / ".env", main_dir.parent / ".env"]
@@ -42,6 +46,17 @@ clean_df = clean_data(train_df)
 print(clean_df)
 
 ### input / output for ml training
+y = clean_df['num_bicycles_available']
 
+X = clean_df.drop(columns=['num_bicycles_available', 'station_id', 'name'])
 
 ### model training
+X_model = X.apply(pd.to_numeric, errors='coerce').fillna(0.0)
+y_model = pd.to_numeric(y, errors='coerce').fillna(0.0)
+
+scaler = StandardScaler()
+X_tensor = torch.tensor(scaler.fit_transform(X_model.values), dtype=torch.float32)
+y_tensor = torch.tensor(y_model.values, dtype=torch.float32)
+
+train_result = train_model(X_tensor, y_tensor, steps=1000, lr=0.005)
+print(f"Training fertig. Final loss: {train_result['losses'][-1]:.2f}")
